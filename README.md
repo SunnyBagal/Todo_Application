@@ -1,155 +1,163 @@
 # Todo Application
 
-A full-stack todo app with priority-based task management, a productivity dashboard, and timezone-aware analytics. Built with React 19, Express 5, and MongoDB.
+A full-stack todo app with priority management, a live progress bar, and timezone-aware analytics — built to learn **Zustand**, **TanStack Query**, and how to wire a real frontend to a real backend.
 
 ---
 
-## Highlights
+## Why this project?
 
-- **JWT auth** — signup, login, and protected routes with bearer-token sessions persisted across reloads.
-- **Smart todos** — title, description, three priority levels (low/medium/high), and a `done` toggle that records `completedAt` so analytics knows *when* work was finished.
-- **Dashboard** — live progress bar, status + priority filters, and inline edit/delete.
-- **Analytics that actually work** — an area chart of todos created vs. completed each day, completion rate, and a current-streak counter. Bucketing is done in the user's timezone, so a todo added at noon shows up in *today's* column, not a UTC neighbor.
-- **Light & dark mode** — class-based theme toggle that survives reloads.
-- **Polished UI** — shadcn/ui (Radix primitives) on Tailwind v4, with Recharts for visualizations and lucide-react icons.
+This started as "I'll build a quick todo app to learn Zustand and TanStack Query." It was not quick.
+
+What I thought would be a weekend project turned into a deep dive into things I didn't know I didn't know — state management philosophy (client state vs server state and why they're fundamentally different), query caching and invalidation, MongoDB aggregation pipelines, timezone-aware date bucketing, and honestly just how much goes into making a "simple" CRUD app feel production-ready.
+
+Some of the things I learned the hard way:
+
+- **Zustand vs TanStack Query** — they solve completely different problems. Zustand manages state that exists only in the browser (filters, dark mode, auth tokens). TanStack Query manages server data that can go stale, needs caching, and should refetch intelligently. Mixing them up (like storing API data in Zustand) creates bugs. Keeping them separate makes everything cleaner.
+- **Query invalidation** — when you check a todo as "done," the progress bar, the todo list, AND the analytics chart all need to update. With TanStack Query, that's one line: `invalidateQueries({ queryKey: ['todos'] })`. Without it, you're manually syncing state across five components.
+- **Timezones are painful** — if you bucket completed todos by date in UTC, a todo finished at 11pm IST shows up in "tomorrow's" column. The analytics pipeline now uses `Intl.DateTimeFormat` to bucket in the user's local timezone. This took way longer than I expected.
+- **File structure matters early** — I started with everything in two files. By the time I had auth + CRUD + analytics, it was unmanageable. Refactoring into routes/middleware/models/schemas made each file focused and debuggable.
+
+The project is far from perfect, but it taught me more than any tutorial could. **Next up: a Trello clone** — I've already started on the backend, database schema, and application architecture.
+
+---
+
+## What it does
+
+**Auth** — signup, login, JWT sessions persisted in localStorage via Zustand. Protected routes redirect to login when there's no token.
+
+**Todos** — create, edit, delete, toggle done, assign priority (low/medium/high). Filters by status and priority. The backend scopes every query to the logged-in user — you only see your own todos.
+
+**Progress bar** — dynamically updates as you complete todos. Fetches all todos (unfiltered) so the percentage stays accurate regardless of active filters.
+
+**Analytics dashboard** — an area chart showing todos created vs completed per day, overall completion rate, and a streak counter (consecutive days with at least one completion). The chart supports 7/30/90 day views via a dropdown.
+
+**Dark mode** — persisted across reloads. One click, no flash.
 
 ---
 
 ## Tech stack
 
-| Layer | Tools |
-|-------|-------|
-| Frontend | React 19, Vite 8, React Router 7, TanStack Query 5, Zustand 5, Tailwind 4, shadcn/ui, Recharts, lucide-react |
-| Backend | Express 5, Mongoose 9, Zod 4, jsonwebtoken, bcryptjs, dotenv, cors |
-| Database | MongoDB |
+| Layer | What I used |
+|-------|-------------|
+| Frontend | React 19, Vite, TanStack Query, Zustand, Tailwind v4, shadcn/ui, Recharts, React Router |
+| Backend | Express, Mongoose, Zod, bcryptjs, jsonwebtoken |
+| Database | MongoDB Atlas |
 
 ---
 
-## Project layout
+## Project structure
 
 ```
 Todo_application/
-├── frontend/          # React + Vite SPA (ESM)
+├── frontend/               # React SPA
 │   └── src/
-│       ├── api/       # fetch wrapper with auth + 401 handling
-│       ├── components/ # AddTodo, TodoList, AnalyticsChart, … + shadcn/ui
-│       ├── hooks/     # useTodos, useAnalytics (TanStack Query)
-│       ├── pages/     # LoginPage, SignupPage, DashboardPage
-│       └── stores/    # Zustand: useAuthStore (persisted), useUIStore
-└── server/            # Express + Mongoose API (CommonJS)
-    ├── config/        # Mongo connection
-    ├── middleware/    # auth (JWT), validate (Zod)
-    ├── models/        # User, Todo
-    ├── routes/        # auth, todos, analytics
-    └── schemas/       # Zod request schemas
+│       ├── api/             # fetch wrapper (reads auth token from Zustand, handles 401s)
+│       ├── components/      # AddTodo, TodoList, TodoItem, ProgressBar, AnalyticsChart, etc.
+│       ├── hooks/           # useTodos, useAnalytics (TanStack Query)
+│       ├── pages/           # Login, Signup, Dashboard
+│       └── stores/          # useAuthStore (persisted), useUIStore
+│
+└── server/                  # Express API
+    ├── config/              # MongoDB connection
+    ├── middleware/           # JWT auth, Zod validation
+    ├── models/              # User, Todo (Mongoose)
+    ├── routes/              # /auth, /todos, /analytics
+    └── schemas/             # Zod request schemas
 ```
 
-The two projects are independent — each has its own `package.json` and `node_modules`.
+Two independent projects — separate `package.json`, separate `node_modules`, separate deploy targets.
 
 ---
 
-## Getting started
+## Running locally
 
-### Prerequisites
-
-- **Node.js** ≥ 18
-- **MongoDB** — Atlas connection string or local instance
-
-### 1. Clone & install
+**Prerequisites:** Node.js ≥ 18, a MongoDB instance (Atlas works great)
 
 ```bash
 git clone <your-repo-url>
 cd Todo_application
 
-# install both projects
-(cd server && npm install)
-(cd frontend && npm install)
+# install both
+cd server && npm install
+cd ../frontend && npm install
 ```
-
-### 2. Configure environment
 
 Create `server/.env`:
 
-```bash
-MONGO_KEY=mongodb+srv://<user>:<pass>@<cluster>/<db>?retryWrites=true&w=majority
-JWT_SECRET=replace-with-a-long-random-string
+```
+MONGO_KEY=your-mongodb-connection-string
+JWT_SECRET=any-long-random-string
 PORT=3005
 ```
 
-> The frontend points at `http://localhost:3005/api` (hard-coded in `frontend/src/api/client.js`). If you change `PORT`, update that constant too.
-
-### 3. Run
-
-In two terminals:
+Start both (two terminals):
 
 ```bash
-# terminal 1 — API
-cd server
-npx nodemon index.js     # or: node index.js
+# terminal 1
+cd server && npx nodemon index.js
 
-# terminal 2 — UI
-cd frontend
-npm run dev
+# terminal 2
+cd frontend && npm run dev
 ```
 
-Open the printed Vite URL (usually `http://localhost:5173`).
+Open the Vite URL (usually `http://localhost:5173`).
+
+> The frontend points at `http://localhost:3005/api` in `src/api/client.js`. If you change the backend port, update that too.
 
 ---
 
-## Scripts
+## API endpoints
 
-**Frontend** (`cd frontend`):
+All `/api/todos` and `/api/analytics` routes need an `Authorization: Bearer <token>` header.
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Vite dev server with HMR |
-| `npm run build` | Production build |
-| `npm run preview` | Serve the built bundle |
-| `npm run lint` | ESLint over the project |
-
-**Backend** (`cd server`):
-
-| Command | Purpose |
-|---------|---------|
-| `node index.js` | Start the API |
-| `npx nodemon index.js` | Dev mode with auto-reload |
+| Method | Route | What it does |
+|--------|-------|--------------|
+| POST | `/api/auth/signup` | Create an account |
+| POST | `/api/auth/signin` | Log in, get a JWT |
+| GET | `/api/auth/me` | Get current user from token |
+| GET | `/api/todos` | List todos (supports `?status=` and `?priority=` filters) |
+| POST | `/api/todos` | Create a todo |
+| PATCH | `/api/todos/:id` | Update fields; toggling `done` auto-sets `completedAt` |
+| DELETE | `/api/todos/:id` | Delete a todo |
+| GET | `/api/analytics` | Daily series, completion rate, streak (`?days=30&tz=Asia/Kolkata`) |
 
 ---
 
-## API
+## How state management works (the thing I actually learned)
 
-All `/api/todos` and `/api/analytics` routes require an `Authorization: Bearer <jwt>` header.
+```
+┌──────────────────────────────┐     ┌──────────────────────────────┐
+│         Zustand              │     │       TanStack Query          │
+│                              │     │                              │
+│  Auth token (persisted)      │     │  Todo list (cached, refetched)│
+│  Dark mode toggle            │────▶│  Analytics data               │
+│  Filter selections           │     │  Progress bar data            │
+│  UI state (modals, etc.)     │     │                              │
+│                              │     │  Auto-invalidates on mutation │
+│  Lives in the browser only   │     │  Lives on the server, cached  │
+└──────────────────────────────┘     └──────────────────────────────┘
+```
 
-| Method | Route | Body / Query | Description |
-|--------|-------|--------------|-------------|
-| POST | `/api/auth/signup` | `{ username, email, password }` | Create account, returns `{ token, user }` |
-| POST | `/api/auth/login` | `{ email, password }` | Returns `{ token, user }` |
-| GET | `/api/todos` | `?status=completed\|active`, `?priority=low\|medium\|high` | List the current user's todos |
-| POST | `/api/todos` | `{ title, description?, priority? }` | Create a todo |
-| PATCH | `/api/todos/:id` | partial fields, including `done` | Update; toggling `done` sets/clears `completedAt` |
-| DELETE | `/api/todos/:id` | — | Delete a todo |
-| GET | `/api/analytics` | `?days=7\|30\|90`, `?tz=<IANA timezone>` | `dailySeries`, totals, completion rate, current streak |
-
-Request validation is performed by the `validate(schema)` middleware in `server/middleware/validate.js`, which runs Zod schemas from `server/schemas/`.
+The arrow shows the bridge: Zustand holds which filter is selected, TanStack Query uses that filter in its query key. Change the filter → query key changes → TanStack Query fetches (or serves from cache). Two libraries, zero prop drilling.
 
 ---
 
-## Architecture notes
+## What I'd do differently
 
-**Frontend state model.** Three layers are kept separate on purpose:
+- Add proper error toast notifications instead of inline error text
+- Implement optimistic updates for the todo toggle (feels instant instead of waiting for the server)
+- Add a "edit todo" modal instead of just toggle/delete
+- Write tests — at least for the API routes
+- Set up CI/CD with GitHub Actions
 
-- **Server state** — TanStack Query (`useTodos`, `useAnalytics`). Mutations invalidate `['todos']` and `['analytics']` so the chart, progress bar, and list stay in sync.
-- **Auth state** — Zustand `useAuthStore` with `persist` middleware (localStorage).
-- **UI state** — Zustand `useUIStore` for filters and dark mode (in-memory).
+---
 
-The `apiClient` wrapper reads the token via `useAuthStore.getState()` (not a hook), so it works outside React, and on `401` it calls `logout()` and throws — components don't need to handle session expiry.
+## What's next
 
-**Timezone-aware analytics.** Daily buckets are generated using `Intl.DateTimeFormat('en-CA', { timeZone })` and the same `timezone` is passed to MongoDB's `$dateToString`. The frontend sends `Intl.DateTimeFormat().resolvedOptions().timeZone` automatically, so a todo created at 2 pm IST lands in today's column and not yesterday's UTC bucket.
-
-**Theming.** Dark mode toggles a `.dark` class on `<html>` driven by Zustand. The chart, cards, and form components all consume shadcn's CSS variables, so the same component tree renders correctly in both modes.
+Building a **Trello clone** — kanban boards, drag-and-drop, multiple lists, card assignments. Already started on the backend schema and architecture. The state management patterns from this project carry over directly — Zustand for board UI state, TanStack Query for card/list data.
 
 ---
 
 ## License
 
-MIT — feel free to fork and adapt.
+MIT
