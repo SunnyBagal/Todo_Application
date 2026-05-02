@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(node --check routes/analytics.js)",
-      "Bash(node -e \"require\\('@babel/parser'\\).parse\\(require\\('fs'\\).readFileSync\\('src/components/AnalyticsChart.jsx','utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('chart OK'\\)\")"
-    ]
-  }
-}
