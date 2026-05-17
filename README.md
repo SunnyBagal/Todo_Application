@@ -128,16 +128,16 @@ All `/api/todos` and `/api/analytics` routes need an `Authorization: Bearer <tok
 ## How state management works (the thing I actually learned)
 
 ```
-┌──────────────────────────────┐     ┌──────────────────────────────┐
+┌──────────────────────────────┐     ┌───────────────────────────────┐
 │         Zustand              │     │       TanStack Query          │
-│                              │     │                              │
+│                              │     │                               │
 │  Auth token (persisted)      │     │  Todo list (cached, refetched)│
 │  Dark mode toggle            │────▶│  Analytics data               │
 │  Filter selections           │     │  Progress bar data            │
-│  UI state (modals, etc.)     │     │                              │
+│  UI state (modals, etc.)     │     │                               │
 │                              │     │  Auto-invalidates on mutation │
 │  Lives in the browser only   │     │  Lives on the server, cached  │
-└──────────────────────────────┘     └──────────────────────────────┘
+└──────────────────────────────┘     └───────────────────────────────┘
 ```
 
 The arrow shows the bridge: Zustand holds which filter is selected, TanStack Query uses that filter in its query key. Change the filter → query key changes → TanStack Query fetches (or serves from cache). Two libraries, zero prop drilling.
