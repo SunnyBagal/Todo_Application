@@ -1,6 +1,6 @@
 # Todo Application
 
-A full-stack todo app with priority-based task management, a productivity dashboard, and timezone-aware analytics. Built with React 19, Express 5, and MongoDB.
+A full-stack todo app with priority management, a live progress bar, and timezone-aware analytics — built to learn Zustand, TanStack Query, and how to wire a real frontend to a real backend. Built with React 19, Express 5, and MongoDB.
 
 ---
 
