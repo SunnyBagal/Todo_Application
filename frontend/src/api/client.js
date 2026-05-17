@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/stores/useAuthStore";
 
-const BASE_URL = 'http://localhost:3005/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export async function apiClient(endpoint, options = {}) {
   const token = useAuthStore.getState().token;
